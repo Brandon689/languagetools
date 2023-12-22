@@ -1,30 +1,36 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 
-const Highlighter = ({ sentence, words, intervals }) => {
+const Highlighter = ({ sentence, words, intervals, start, stop }) => {
   const [highlightedWord, setHighlightedWord] = useState(null);
-  const [wordIndex, setWordIndex] = useState(0);
   const [hoveredWord, setHoveredWord] = useState(null);
+  const [timeoutIds, setTimeoutIds] = useState([]);
 
-  // useMemo hook to split the sentence into words only once
-  const splitSentence = useMemo(() => sentence.split(' '), [sentence]);
+  // Function to start highlighting words
+  const startHighlighting = useCallback(() => {
+    let currentTimeoutIds = [];
+    setHighlightedWord(words[0]);
 
-  useEffect(() => {
-    let timer;
-
-    if (wordIndex < words.length) {
-      timer = setInterval(() => {
-        setHighlightedWord(words[wordIndex]);
-        setWordIndex((prevIndex) => prevIndex + 1);
-
-        if (wordIndex === words.length - 1) {
-          clearInterval(timer);
-          setTimeout(() => setHighlightedWord(null), intervals[wordIndex]);
+    words.forEach((word, index) => {
+      let timeoutId = setTimeout(() => {
+        setHighlightedWord(words[index]);
+        // Clear highlighting when done
+        if (index === words.length - 1) {
+          setTimeout(() => setHighlightedWord(null), intervals[index]);
         }
-      }, intervals[wordIndex]);
-    }
+      }, intervals.slice(0, index + 1).reduce((a, b) => a + b, 0));
 
-    return () => clearInterval(timer);
-  }, [wordIndex, intervals, words]);
+      currentTimeoutIds.push(timeoutId);
+    });
+
+    // Track all timeout IDs so they can be cleared if stopping early
+    setTimeoutIds(currentTimeoutIds);
+  }, [words, intervals]);
+
+  const clearHighlighting = useCallback(() => {
+    timeoutIds.forEach(clearTimeout);
+    setTimeoutIds([]);
+    setHighlightedWord(null);
+  }, [timeoutIds]);
 
   // Handle word mouse hover
   const handleMouseEnter = (word) => {
@@ -35,20 +41,29 @@ const Highlighter = ({ sentence, words, intervals }) => {
     setHoveredWord(null);
   };
 
+  // Effect for starting the highlighting process
+  React.useEffect(() => {
+    if (start) {
+      startHighlighting();
+    }
+  }, [start, startHighlighting]);
+
+  // Effect for stopping the highlighting process
+  React.useEffect(() => {
+    if (stop) {
+      clearHighlighting();
+    }
+  }, [stop, clearHighlighting]);
+
   return (
     <div>
-      {splitSentence.map((word, index) => {
-        // Determine if the word should be highlighted
-        const isHighlighted =
-          word === highlightedWord || word === hoveredWord;
-          
-        // Change color to red if highlighted, otherwise black
+      {sentence.split(' ').map((word, index) => {
+        const isHighlighted = word === highlightedWord || word === hoveredWord;
         const color = isHighlighted ? 'red' : 'black';
-
         return (
           <span
             key={index}
-            style={{ color }} // Apply the style change here
+            style={{ color }}
             onMouseEnter={() => handleMouseEnter(word)}
             onMouseLeave={handleMouseLeave}
           >
@@ -62,10 +77,34 @@ const Highlighter = ({ sentence, words, intervals }) => {
 
 const App = () => {
   const sentence = 'This is a sample sentence to demonstrate highlighting.';
-  const words = sentence.split(' '); // This could also be memoized if necessary
-  const intervals = [1000, 1500, 800, 1200, 1000, 2000, 1000, 800, 1500, 1200, 1000, 1500, 800];
+  const words = sentence.split(' ');
+  const intervals = words.map((_, i) => 1000 + i * 100); // Sample intervals
+  const [start, setStart] = useState(false);
+  const [stop, setStop] = useState(false);
 
-  return <Highlighter sentence={sentence} words={words} intervals={intervals} />;
+  const handlePlayClick = () => {
+    setStop(false);
+    setStart(true);
+  };
+
+  const handleStopClick = () => {
+    setStart(false);
+    setStop(true);
+  };
+
+  return (
+    <div>
+      <Highlighter 
+        sentence={sentence} 
+        words={words} 
+        intervals={intervals} 
+        start={start} 
+        stop={stop} 
+      />
+      <button onClick={handlePlayClick}>Play</button>
+      <button onClick={handleStopClick}>Stop</button>
+    </div>
+  );
 };
 
 export default App;
