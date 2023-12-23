@@ -1,38 +1,61 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 
-const Highlighter = ({ sentence, words, intervals, start, stop }) => {
-  const [highlightedWord, setHighlightedWord] = useState(null);
+const Highlighter = ({ words, highlightedIndex, onWordSelect }) => {
+  return (
+    <div>
+      {words.map((word, index) => (
+        <span
+          key={index}
+          style={{
+            color: index === highlightedIndex ? 'red' : 'black',
+            cursor: 'pointer',
+          }}
+          onClick={() => onWordSelect(word)}
+        >
+          {word}{' '}
+        </span>
+      ))}
+    </div>
+  );
+};
+
+const DisplaySelectedWord = ({ selectedWord }) => {
+  if (!selectedWord) return null; // Don't display if no word is selected
+
+  return (
+    <div>
+      Selected Word: <strong>{selectedWord}</strong>
+    </div>
+  );
+};
+
+const App = () => {
+  const sentence = 'This is a sample sentence to demonstrate highlighting.';
+  const words = sentence.split(' ');
+  const intervals = words.map(() => 500);
+  const [playing, setPlaying] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [selectedWord, setSelectedWord] = useState('');
   const [hoveredWord, setHoveredWord] = useState(null);
-  const [timeoutIds, setTimeoutIds] = useState([]);
+  const handlePlayback = () => {
+    setPlaying(true);
+    let index = 0;
 
-  // Function to start highlighting words
-  const startHighlighting = useCallback(() => {
-    let currentTimeoutIds = [];
-    setHighlightedWord(words[0]);
+    const highlightNextWord = () => {
+      if (index < words.length) {
+        setHighlightedIndex(index);
+        index++;
+        setTimeout(highlightNextWord, intervals[index - 1]);
+      } else {
+        setHighlightedIndex(-1);
+        setPlaying(false);
+      }
+    };
 
-    words.forEach((word, index) => {
-      let timeoutId = setTimeout(() => {
-        setHighlightedWord(words[index]);
-        // Clear highlighting when done
-        if (index === words.length - 1) {
-          setTimeout(() => setHighlightedWord(null), intervals[index]);
-        }
-      }, intervals.slice(0, index + 1).reduce((a, b) => a + b, 0));
+    highlightNextWord();
+  };
 
-      currentTimeoutIds.push(timeoutId);
-    });
-
-    // Track all timeout IDs so they can be cleared if stopping early
-    setTimeoutIds(currentTimeoutIds);
-  }, [words, intervals]);
-
-  const clearHighlighting = useCallback(() => {
-    timeoutIds.forEach(clearTimeout);
-    setTimeoutIds([]);
-    setHighlightedWord(null);
-  }, [timeoutIds]);
-
-  // Handle word mouse hover
   const handleMouseEnter = (word) => {
     setHoveredWord(word);
   };
@@ -41,70 +64,139 @@ const Highlighter = ({ sentence, words, intervals, start, stop }) => {
     setHoveredWord(null);
   };
 
-  // Effect for starting the highlighting process
-  React.useEffect(() => {
-    if (start) {
-      startHighlighting();
-    }
-  }, [start, startHighlighting]);
-
-  // Effect for stopping the highlighting process
-  React.useEffect(() => {
-    if (stop) {
-      clearHighlighting();
-    }
-  }, [stop, clearHighlighting]);
-
   return (
     <div>
-      {sentence.split(' ').map((word, index) => {
-        const isHighlighted = word === highlightedWord || word === hoveredWord;
-        const color = isHighlighted ? 'red' : 'black';
-        return (
-          <span
-            key={index}
-            style={{ color }}
-            onMouseEnter={() => handleMouseEnter(word)}
-            onMouseLeave={handleMouseLeave}
-          >
-            {word}{' '}
-          </span>
-        );
-      })}
-    </div>
-  );
-};
-
-const App = () => {
-  const sentence = 'This is a sample sentence to demonstrate highlighting.';
-  const words = sentence.split(' ');
-  const intervals = words.map((_, i) => 1000 + i * 100); // Sample intervals
-  const [start, setStart] = useState(false);
-  const [stop, setStop] = useState(false);
-
-  const handlePlayClick = () => {
-    setStop(false);
-    setStart(true);
-  };
-
-  const handleStopClick = () => {
-    setStart(false);
-    setStop(true);
-  };
-
-  return (
-    <div>
-      <Highlighter 
-        sentence={sentence} 
-        words={words} 
-        intervals={intervals} 
-        start={start} 
-        stop={stop} 
+      <Highlighter
+        words={words}
+        highlightedIndex={highlightedIndex}
+        onWordSelect={(word) => setSelectedWord(word)}
       />
-      <button onClick={handlePlayClick}>Play</button>
-      <button onClick={handleStopClick}>Stop</button>
+      <button onClick={handlePlayback} disabled={playing}>
+        {playing ? 'Playing...' : 'Play'}
+      </button>
+      <DisplaySelectedWord selectedWord={selectedWord} />
     </div>
   );
 };
+
+
 
 export default App;
+
+
+
+// import React, { useState, useEffect, useCallback } from 'react';
+
+// const Highlighter = ({ sentence, words, intervals, playing, onFinish, onSelectWord }) => {
+//   const [highlightedWord, setHighlightedWord] = useState(null);
+//   const [hoveredWord, setHoveredWord] = useState(null);
+
+//   const startHighlighting = useCallback(() => {
+//     let index = 0;
+//     const advanceHighlighting = () => {
+//       if (index < words.length) {
+//         setHighlightedWord(words[index]);
+//         console.log(index);
+//         index++;
+//       } else {
+//         setHighlightedWord(null); 
+//         onFinish();
+//         return;
+//       }
+//       setTimeout(advanceHighlighting, intervals[index - 1]);
+//     };
+//     advanceHighlighting();
+//   }, [words, intervals, onFinish]);
+
+//   useEffect(() => {
+//     if (playing) {
+//       startHighlighting();
+//     }
+//   }, [playing, startHighlighting]);
+
+//   const handleMouseEnter = (word) => {
+//     setHoveredWord(word);
+//   };
+
+//   const handleMouseLeave = () => {
+//     setHoveredWord(null);
+//   };
+
+//   const handleWordClick = (word) => {
+//     onSelectWord(word);
+//   };
+
+//   return (
+//     <div>
+//       {sentence.split(' ').map((word, index) => {
+//         const isHighlighted = word === highlightedWord || word === hoveredWord;
+//         const color = isHighlighted ? 'red' : 'black';
+//         return (
+//           <span
+//             key={index}
+//             style={{ color, cursor: 'pointer', userSelect: 'none' }}  // Added userSelect for better UX
+//             onClick={() => handleWordClick(word)}
+//             onMouseEnter={() => handleMouseEnter(word)}
+//             onMouseLeave={handleMouseLeave}
+//           >
+//             {word + ' '}
+//           </span>
+//         );
+//       })}
+//     </div>
+//   );
+// };
+
+// const DisplaySelectedWord = ({ selectedWord }) => {
+//   if (!selectedWord) return null; // Don't display if no word is selected
+
+//   return (
+//     <div>
+//       Selected Word: <strong>{selectedWord}</strong>
+//     </div>
+//   );
+// };
+
+// const App = () => {
+//   const sentence = 'This is a sample sentence to demonstrate highlighting.';
+//   const words = sentence.split(' ');
+//   const intervals = words.map(() => 500);
+//   const [playing, setPlaying] = useState(false);
+//   const [selectedWord, setSelectedWord] = useState('');
+
+//   const handlePlayClick = () => {
+//     setPlaying(true);
+//   };
+
+//   const handlePlaybackFinish = () => {
+//     setPlaying(false);
+//   };
+
+//   const handleWordSelection = (word) => {
+//     setSelectedWord(word);
+//   };
+//   const forceRerender = () => {
+//     // Call forceUpdate to force a re-render
+//     forceUpdate();
+//   };
+//   return (
+//     <div>
+//       <Highlighter 
+//         sentence={sentence} 
+//         words={words} 
+//         intervals={intervals} 
+//         playing={playing} 
+//         onFinish={handlePlaybackFinish}
+//         onSelectWord={handleWordSelection}
+//       />
+//       <button onClick={handlePlayClick} disabled={playing}>
+//         {playing ? 'Playing...' : 'Play'}
+//       </button>
+//       <DisplaySelectedWord selectedWord={selectedWord} />
+
+//       <button onClick={forceRerender}>Force Re-render</button>
+//     </div>
+//   );
+// };
+
+// export default App;
